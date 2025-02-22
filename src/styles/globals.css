@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definieer de standaard achtergrond- en tekstkleur voor de lichte modus */
+:root {
+  --background: #f9f9f9; /* Lichtgrijze achtergrond */
+  --foreground: #171717; /* Donkere tekstkleur */
+}
+
+/* Donkere modus stijl (handmatig met de class 'dark') */
+.dark {
+  --background: #1a1a1a;  /* Donkere achtergrond */
+  --foreground: #ededed;   /* Lichte tekstkleur */
+}
+
+/* Algemene body stijl */
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+  transition: background 0.3s ease, color 0.3s ease; /* Zachte overgang tussen lichte en donkere modus */
+}
+
+/* Voor knoppen en andere interactieve elementen kun je ook kleuren aanpassen */
+button {
+  background-color: var(--foreground);
+  color: var(--background);
+  border: 1px solid var(--foreground);
+}
+
+button:hover {
+  background-color: var(--background);
+  color: var(--foreground);
+}
