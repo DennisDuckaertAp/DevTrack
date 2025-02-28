@@ -1,34 +1,42 @@
+"use client"
+
 import type React from "react"
 
 import { useEffect, useState } from "react"
 import type { GetServerSideProps } from "next"
-import { Post, PostWithFormattedDate } from "../../types"
+import type { Post, PostWithFormattedDate } from "../../types"
 import Image from "next/image"
+import Link from "next/link"
 import { Search, Code, BookOpen, Server, Coffee, Plus, X, Menu, AlertCircle, CheckCircle } from "lucide-react"
+import { getCookie } from "cookies-next"
 
 interface PostsProps {
-  posts: PostWithFormattedDate[];
+  posts: PostWithFormattedDate[]
 }
 
 export const getServerSideProps: GetServerSideProps<PostsProps> = async (context) => {
-  const host = context.req.headers.host || "localhost:3000";
-  const protocol = context.req.headers["x-forwarded-proto"] || "http";
-  const apiUrl = `${protocol}://${host}/api/mongodb`;
+  const host = context.req.headers.host || "localhost:3000"
+  const protocol = context.req.headers["x-forwarded-proto"] || "http"
+  const apiUrl = `${protocol}://${host}/api/mongodb`
 
-  let posts: PostWithFormattedDate[] = [];
+  let posts: PostWithFormattedDate[] = []
 
   try {
-    const res = await fetch(apiUrl);
+    const res = await fetch(apiUrl, {
+      headers: {
+        Cookie: context.req.headers.cookie || "",
+      },
+    })
 
     if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+      throw new Error(`HTTP error! status: ${res.status}`)
     }
 
-    const { posts: fetchedPosts } = await res.json();
+    const { posts: fetchedPosts } = await res.json()
     posts = fetchedPosts.map((post: Post) => {
-      const createdAtDate = new Date(post.createdAt);
-      const formattedDate = createdAtDate.toLocaleDateString("en-GB");
-      const formattedTime = createdAtDate.toLocaleTimeString("en-GB", { hour12: false });
+      const createdAtDate = new Date(post.createdAt)
+      const formattedDate = createdAtDate.toLocaleDateString("en-GB")
+      const formattedTime = createdAtDate.toLocaleTimeString("en-GB", { hour12: false })
 
       return {
         ...post,
@@ -36,20 +44,20 @@ export const getServerSideProps: GetServerSideProps<PostsProps> = async (context
           date: formattedDate,
           time: formattedTime,
         },
-      };
-    });
+      }
+    })
   } catch (error) {
-    console.error("Error fetching posts:", error);
+    console.error("Error fetching posts:", error)
   }
 
-  console.log("Fetched posts:", posts);
+  console.log("Fetched posts:", posts)
 
   return {
     props: {
       posts,
     },
-  };
-};
+  }
+}
 
 const Posts = ({ posts: initialPosts }: PostsProps) => {
   const [posts, setPosts] = useState<PostWithFormattedDate[]>(initialPosts)
@@ -61,39 +69,36 @@ const Posts = ({ posts: initialPosts }: PostsProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle")
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    const authToken = getCookie("auth_token")
+    setIsAdmin(authToken === process.env.NEXT_PUBLIC_BEARER_TOKEN)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     setSubmitStatus("idle")
 
-    setError(null); 
+    setError(null)
 
-    const missingFields = [];
-    if (!newPost.title) missingFields.push("Title");
-    if (!newPost.content) missingFields.push("Content");
-    if (!newPost.category) missingFields.push("Category");
-  
+    const missingFields = []
+    if (!newPost.title) missingFields.push("Title")
+    if (!newPost.content) missingFields.push("Content")
+    if (!newPost.category) missingFields.push("Category")
+
     if (missingFields.length > 0) {
-      setError(`Please fill in the following fields: ${missingFields.join(", ")}.`);
-      setIsSubmitting(false);
-      return;
+      setError(`Please fill in the following fields: ${missingFields.join(", ")}.`)
+      setIsSubmitting(false)
+      return
     }
 
     try {
-      const token = process.env.NEXT_PUBLIC_BEARER_TOKEN
-
-      if (!token) {
-        setError("Authorization token is missing.")
-        setIsSubmitting(false)
-        return
-      }
-
       const response = await fetch("/api/mongodb", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(newPost),
       })
@@ -131,7 +136,6 @@ const Posts = ({ posts: initialPosts }: PostsProps) => {
       setIsSubmitting(false)
     }
   }
-
 
   const filteredPosts = posts.filter(
     (post) =>
@@ -178,8 +182,9 @@ const Posts = ({ posts: initialPosts }: PostsProps) => {
                     setSelectedCategory(category)
                     setIsMobileMenuOpen(false)
                   }}
-                  className={`w-full text-left py-2 px-4 rounded ${selectedCategory === category ? "bg-blue-600" : "hover:bg-gray-700"
-                    }`}
+                  className={`w-full text-left py-2 px-4 rounded ${
+                    selectedCategory === category ? "bg-blue-600" : "hover:bg-gray-700"
+                  }`}
                 >
                   {category === "Frontend" && <Code className="inline mr-2" size={18} />}
                   {category === "Backend" && <Server className="inline mr-2" size={18} />}
@@ -207,15 +212,17 @@ const Posts = ({ posts: initialPosts }: PostsProps) => {
               />
               <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
             </div>
-            <button
-             onClick={() => {
-              setIsCreating(true)
-              setError(null) // Reset de error wanneer de modal opent
-            }}
-              className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full flex items-center justify-center"
-            >
-              <Plus size={18} className="mr-2" /> New Post
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setIsCreating(true)
+                  setError(null)
+                }}
+                className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full flex items-center justify-center"
+              >
+                <Plus size={18} className="mr-2" /> New Post
+              </button>
+            )}
           </div>
 
           {/* Post creation modal */}
@@ -224,10 +231,13 @@ const Posts = ({ posts: initialPosts }: PostsProps) => {
               <div className="bg-gray-800 p-6 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-bold">Create New Post</h2>
-                  <button onClick={() => {
-                    setIsCreating(false)
-                    setError(null) 
-                  }} className="text-gray-400 hover:text-white">
+                  <button
+                    onClick={() => {
+                      setIsCreating(false)
+                      setError(null)
+                    }}
+                    className="text-gray-400 hover:text-white"
+                  >
                     <X size={24} />
                   </button>
                 </div>
@@ -237,7 +247,7 @@ const Posts = ({ posts: initialPosts }: PostsProps) => {
                     {error}
                   </div>
                 )}
-                {submitStatus === 'success' && (
+                {submitStatus === "success" && (
                   <div className="mb-4 p-3 bg-green-500 text-white rounded-md flex items-center">
                     <CheckCircle className="mr-2" size={20} />
                     Post created successfully!
@@ -282,12 +292,11 @@ const Posts = ({ posts: initialPosts }: PostsProps) => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`w-full p-3 rounded-lg transition duration-300 ${isSubmitting
-                        ? 'bg-gray-500 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                      }`}
+                    className={`w-full p-3 rounded-lg transition duration-300 ${
+                      isSubmitting ? "bg-gray-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white"
+                    }`}
                   >
-                    {isSubmitting ? 'Creating Post...' : 'Create Post'}
+                    {isSubmitting ? "Creating Post..." : "Create Post"}
                   </button>
                 </form>
               </div>
@@ -297,21 +306,30 @@ const Posts = ({ posts: initialPosts }: PostsProps) => {
           {/* Posts grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPosts.map((post) => (
-              <article key={post._id} className="bg-gray-800 rounded-lg overflow-hidden shadow-lg">
-                {post.imageUrl && (
-                  <div className="relative h-48">
-                    <Image src={post.imageUrl || "/placeholder.svg"} alt={post.title} layout="fill" objectFit="cover" />
+              <Link href={`/post/${post._id}`} key={post._id} className="block group">
+                <article className="bg-gray-800 rounded-lg overflow-hidden shadow-lg h-full transition-transform duration-300 group-hover:transform group-hover:scale-[1.02]">
+                  {post.imageUrl && (
+                    <div className="relative h-48">
+                      <Image
+                        src={post.imageUrl || "/placeholder.svg"}
+                        alt={post.title}
+                        layout="fill"
+                        objectFit="cover"
+                      />
+                    </div>
+                  )}
+                  <div className="p-6 h-full flex flex-col">
+                    <h3 className="text-xl font-bold text-blue-400 mb-2 group-hover:text-blue-300 transition-colors">
+                      {post.title}
+                    </h3>
+                    <p className="text-gray-300 mb-4 line-clamp-3 flex-grow">{post.content}</p>
+                    <div className="flex justify-between items-center text-sm text-gray-400 mt-auto">
+                      <span>{post.createdAt.date}</span>
+                      <span className="bg-blue-600 px-2 py-1 rounded text-xs text-white">{post.category}</span>
+                    </div>
                   </div>
-                )}
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-blue-400 mb-2">{post.title}</h3>
-                  <p className="text-gray-300 mb-4 line-clamp-3">{post.content}</p>
-                  <div className="flex justify-between items-center text-sm text-gray-400">
-                    <span>{post.createdAt.date}</span>
-                    <span className="bg-blue-600 px-2 py-1 rounded text-xs">{post.category}</span>
-                  </div>
-                </div>
-              </article>
+                </article>
+              </Link>
             ))}
           </div>
         </div>
@@ -321,3 +339,4 @@ const Posts = ({ posts: initialPosts }: PostsProps) => {
 }
 
 export default Posts
+
